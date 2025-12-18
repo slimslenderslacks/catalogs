@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "com.googleapis.container/gke",
+  "title": "Google Kubernetes Engine (GKE) MCP Server",
+  "description": "Manage GKE clusters and Kubernetes resources through MCP. Provides tools for cluster operations, node pools, and Kubernetes API interactions.",
+  "version": "1.0.0",
+  "websiteUrl": "https://cloud.google.com/kubernetes-engine/docs/reference/mcp",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://container.googleapis.com/mcp",
+      "headers": [
+        {
+          "name": "x-goog-user-project",
+          "value": "{project_id}",
+          "variables": {
+            "project_id": {
+              "description": "Your Google project id",
+              "isRequired": true,
+              "isSecret": true,
+              "placeholder": "project-1234..."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "src": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJKUMkuqNwND4ITLcurk8rjF1VgDX0sR5yUw&s",
+      "mimeType": "image/png"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "oauth": {
+        "providers": [
+          {
+            "provider": "google",
+            "secret": "google.access_token",
+            "env": "ACCESS_TOKEN"
+          }
+        ],
+        "scopes": []
+      }
+    }
+  }
+}

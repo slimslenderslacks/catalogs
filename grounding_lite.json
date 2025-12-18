@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "com.google.maps/grounding-lite",
+  "title": "Google Maps AI Grounding Lite",
+  "version": "v0.1.0",
+  "description": "Experimental MCP server providing Google Maps data with place search, weather, and routing capabilities",
+  "websiteUrl": "https://developers.google.com/maps/ai/grounding-lite",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mapstools.googleapis.com/mcp",
+      "headers": [
+        {
+          "name": "X-Goog-Api-Key",
+          "value": "{api_key}",
+          "variables": {
+            "api_key": {
+              "description": "Your Google Cloud API key with Maps Grounding Lite API enabled",
+              "isRequired": true,
+              "isSecret": true,
+              "placeholder": "AIzaSyD..."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "src": "https://www.gstatic.com/images/branding/product/2x/maps_48dp.png",
+      "mimeType": "image/png",
+      "sizes": ["48x48"]
+    },
+    {
+      "src": "https://www.gstatic.com/images/branding/product/2x/maps_96dp.png",
+      "mimeType": "image/png",
+      "sizes": ["96x96"]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+      "status": "active",
+      "publishedAt": "2025-12-11T00:00:00Z",
+      "updatedAt": "2025-12-11T00:00:00Z",
+      "isLatest": true
+    }
+  }
+}

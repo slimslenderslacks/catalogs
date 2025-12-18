@@ -1,0 +1,54 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "com.google.cloud/bigquery-mcp",
+  "title": "BigQuery MCP Server",
+  "description": "Remote MCP server for BigQuery data analysis, querying, and forecasting via Google Cloud",
+  "version": "0.1.0",
+  "websiteUrl": "https://docs.cloud.google.com/bigquery/docs/use-bigquery-mcp",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://bigquery.googleapis.com/mcp",
+      "headers": [
+        {
+          "name": "x-goog-user-project",
+          "value": "{project_id}",
+          "variables": {
+            "project_id": {
+              "description": "Your Google project id",
+              "isRequired": true,
+              "isSecret": true,
+              "placeholder": "project-1234..."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "src": "https://cdn.worldvectorlogo.com/logos/google-bigquery-logo-1.svg",
+      "mimeType": "image/png"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+      "status": "active",
+      "publishedAt": "2025-12-11T00:00:00Z",
+      "updatedAt": "2025-12-11T00:00:00Z",
+      "isLatest": true
+    },
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "oauth": {
+        "providers": [
+          {
+            "provider": "google",
+            "secret": "google.access_token",
+            "env": "ACCESS_TOKEN"
+          }
+        ],
+        "scopes": []
+      }
+    }
+  }
+}

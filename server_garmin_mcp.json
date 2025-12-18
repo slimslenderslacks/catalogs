@@ -1,0 +1,35 @@
+{
+  "name": "io.github.slimslenderslacks/garmin_mcp",
+  "description": "exposes your fitness and health data to Claude and other MCP-compatible clients.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/slimslenderslacks/poci",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "oci",
+      "registryBaseUrl": "https://docker.io",
+      "identifier": "jimclark106/gramin_mcp",
+      "version": "sha256:637379b17fc12103bb00a52ccf27368208fd8009e6efe2272b623b1a5431814a",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GARMIN_EMAIL",
+          "description": "Garmin Connect email address",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "GARMIN_PASSWORD",
+          "description": "Garmin Connect password",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
