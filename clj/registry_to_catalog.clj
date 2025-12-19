@@ -239,6 +239,17 @@
     (:secrets s) (-> (dissoc :secrets) (assoc :config (select-keys s [:secrets])))
     (:oauth s) (-> (update :oauth (fn [{:keys [providers]}] (->> providers (into [])))))))
 
+; docker mcp catalog-next create jimclark106/docker-private --title "Docker Private Catalog" --from-legacy-catalog ./private.json Catalog jimclark106/docker-private:latest created
+(spit
+ "private.json"
+ (json/generate-string
+   (let [server0 (transform-to-docker (json/parse-string (slurp "./server_grafana_internal.json") keyword))]
+     {:name "PrivateDocker"
+      :displayName "Private Docker Catalog"
+      :registry
+      {(:name server0) server0}})
+  {:pretty true}))
+
 (spit
  "legacy.json"
  (json/generate-string

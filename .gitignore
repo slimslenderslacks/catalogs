@@ -2,3 +2,4 @@
 /.cpcache/
 /.direnv/
 /legacy.json
+/.nrepl-port
