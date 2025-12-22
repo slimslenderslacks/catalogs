@@ -1,0 +1,10 @@
+name: com-docker-grafana-internal-mcp
+remote:
+  url: https://mcp-grafana.s.us-east-1.aws.dckr.io/mcp
+  transport_type: streamable-http
+type: remote
+about:
+  title: Internal Grafana Server
+  description: Internal-only grafana MCP servers. Only accessible to Docker employees.
+dynamic:
+  tools: true

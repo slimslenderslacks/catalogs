@@ -243,7 +243,7 @@
 (spit
  "private.json"
  (json/generate-string
-   (let [server0 (transform-to-docker (json/parse-string (slurp "./server_grafana_internal.json") keyword))]
+   (let [server0 (transform-to-docker (json/parse-string (slurp "./servers/server_grafana_internal.json") keyword))]
      {:name "PrivateDocker"
       :displayName "Private Docker Catalog"
       :registry
@@ -253,10 +253,10 @@
 (spit
  "legacy.json"
  (json/generate-string
-   (let [server0 (transform-to-docker (json/parse-string (slurp "./grounding_lite.json") keyword))
-         server1 (transform-to-docker (json/parse-string (slurp "./gke-mcp-server.json") keyword))
-         server2 (transform-to-docker (json/parse-string (slurp "./google-cloud-compute-mcp_server.json") keyword))
-         server3 (transform-to-docker (json/parse-string (slurp "./server_bigquery_mcp.json") keyword))]
+   (let [server0 (transform-to-docker (json/parse-string (slurp "./servers/grounding_lite.json") keyword))
+         server1 (transform-to-docker (json/parse-string (slurp "./servers/gke-mcp-server.json") keyword))
+         server2 (transform-to-docker (json/parse-string (slurp "./servers/google-cloud-compute-mcp_server.json") keyword))
+         server3 (transform-to-docker (json/parse-string (slurp "./servers/server_bigquery_mcp.json") keyword))]
      {:name "Google"
       :displayName "Google"
       :registry
@@ -266,10 +266,10 @@
        (:name server3) server3}})
   {:pretty true}))
 
-(let [server0 (transform-to-docker (json/parse-string (slurp "./grounding_lite.json") keyword))
-      server1 (transform-to-docker (json/parse-string (slurp "./gke-mcp-server.json") keyword))
-      server2 (transform-to-docker (json/parse-string (slurp "./google-cloud-compute-mcp_server.json") keyword))
-      server3 (transform-to-docker (json/parse-string (slurp "./server_bigquery_mcp.json") keyword))]
+(let [server0 (transform-to-docker (json/parse-string (slurp "./servers/grounding_lite.json") keyword))
+      server1 (transform-to-docker (json/parse-string (slurp "./servers/gke-mcp-server.json") keyword))
+      server2 (transform-to-docker (json/parse-string (slurp "./servers/google-cloud-compute-mcp_server.json") keyword))
+      server3 (transform-to-docker (json/parse-string (slurp "./servers/server_bigquery_mcp.json") keyword))]
   (doseq [s [server0 server1 server2 server3]]
-    (fs/create-dirs (format "./ai-mcp/%s" (:name s)))
-    (spit (format "./ai-mcp/%s/server.yaml" (:name s)) (clj-yaml/generate-string (->mcp-registry s) :dumper-options { :flow-style :block}))))
+    (fs/create-dirs (format "./catalog/%s" (:name s)))
+    (spit (format "./catalog/%s/server.yaml" (:name s)) (clj-yaml/generate-string (->mcp-registry s) :dumper-options { :flow-style :block}))))
