@@ -236,7 +236,8 @@
 
         ;; Add image if it's an OCI package
         (and package (extract-image-info package))
-        (assoc :image (extract-image-info package))
+        (assoc :image (extract-image-info package)
+               :type "server")
 
         ;; Add remote if present
         remote

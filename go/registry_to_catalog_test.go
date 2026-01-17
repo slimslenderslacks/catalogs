@@ -117,6 +117,11 @@ func TestTransformOCIPackage(t *testing.T) {
 		t.Errorf("Expected image '%s', got '%s'", expectedImage, result.Image)
 	}
 
+	// Verify type is "server" for OCI packages
+	if result.Type != "server" {
+		t.Errorf("Expected type 'server', got '%s'", result.Type)
+	}
+
 	// Verify config variables (non-secrets)
 	if len(result.Config) == 0 {
 		t.Error("Expected config to be present")
@@ -573,6 +578,11 @@ func TestTransformOCIWithDirectSecrets(t *testing.T) {
 	expectedImage := "jimclark106/gramin_mcp@sha256:637379b17fc12103bb00a52ccf27368208fd8009e6efe2272b623b1a5431814a"
 	if result.Image != expectedImage {
 		t.Errorf("Expected image '%s', got '%s'", expectedImage, result.Image)
+	}
+
+	// Verify type is "server" for OCI packages
+	if result.Type != "server" {
+		t.Errorf("Expected type 'server', got '%s'", result.Type)
 	}
 
 	// Verify secrets - both GARMIN_EMAIL and GARMIN_PASSWORD should be secrets

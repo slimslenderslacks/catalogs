@@ -465,6 +465,7 @@ func TransformToDocker(serverDetail ServerDetail) (*DockerServer, error) {
 	if pkg != nil {
 		if image := extractImageInfo(*pkg); image != "" {
 			dockerServer.Image = image
+			dockerServer.Type = "server"
 		}
 	}
 
