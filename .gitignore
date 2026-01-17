@@ -3,3 +3,4 @@
 /.direnv/
 /legacy.json
 /.nrepl-port
+/go/bin/

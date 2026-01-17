@@ -115,19 +115,20 @@
                            :registry/KeyValueInput))
 
 ;; ServerDetail
+(spec/def :registry/Server (spec/keys :req-un [:registry/server]
+                                      :opt-un [:registry/_meta]))
 
-(spec/def :registry/ServerDetail (spec/keys
-                                  :req-un [:registry/name 
-                                           :registry/description 
-                                           :registry/version 
-                                           :registry/$schema]
-                                  :opt-un [:registry/repository 
-                                           :registry/websiteUrl 
-                                           :registry/packages 
-                                           :registry/remotes 
-                                           :registry/icons
-                                           :registry/_meta
-                                           :registry/title]))
+(spec/def :registry/server (spec/keys
+                            :req-un [:registry/name
+                                     :registry/description
+                                     :registry/version
+                                     :registry/$schema]
+                            :opt-un [:registry/repository
+                                     :registry/websiteUrl
+                                     :registry/packages
+                                     :registry/remotes
+                                     :registry/icons
+                                     :registry/title]))
 (spec/def :registry/icons (spec/coll-of :registry/Icon))
 (spec/def :registry/packages (spec/coll-of :registry/Package))
 (spec/def :registry/remotes (spec/coll-of

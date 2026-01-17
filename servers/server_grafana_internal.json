@@ -1,14 +1,16 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-  "name": "com.docker/grafana-internal",
-  "title": "Docker Internal Grafana Server",
-  "description": "Internal Grafana MCP server. Only accessible to Docker employees",
-  "version": "0.1.0",
-  "websiteUrl": "https://www.notion.so/dockerinc/Grafana-MCP-Connect-Your-Local-Agent-to-Metrics-and-Logs-2ca57a1d46738014bb9fdc3388ef215f",
-  "remotes": [
-    {
-      "type": "streamable-http",
-      "url": "https://mcp-grafana.s.us-east-1.aws.dckr.io/mcp"
-    }
-  ]
+  "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+    "name": "com.docker/grafana-internal",
+    "title": "Docker Internal Grafana Server",
+    "description": "Internal Grafana MCP server. Only accessible to Docker employees",
+    "version": "0.1.0",
+    "websiteUrl": "https://www.notion.so/dockerinc/Grafana-MCP-Connect-Your-Local-Agent-to-Metrics-and-Logs-2ca57a1d46738014bb9fdc3388ef215f",
+    "remotes": [
+      {
+        "type": "streamable-http",
+        "url": "https://mcp-grafana.s.us-east-1.aws.dckr.io/mcp"
+      }
+    ]
+  }
 }

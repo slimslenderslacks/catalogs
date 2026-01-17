@@ -2,8 +2,8 @@
   (:require
    [babashka.fs :as fs]
    [cheshire.core :as json]
-   [schema]
    [clj-yaml.core :as clj-yaml]
+   [clojure.pprint :as pprint]
    [clojure.spec.alpha :as s]
    [clojure.string :as string]))
 
@@ -30,10 +30,18 @@
           (mapcat :runtimeArguments)
           (mapcat :variables)
           (into {}))
-     ;; Variables from environment variables
+     ;; Variables from environment variables (nested variables)
      (->> packages
           (mapcat :environmentVariables)
           (mapcat :variables)
+          (into {}))
+     ;; Direct secret/config environment variables (no value, just declaration)
+     (->> packages
+          (mapcat :environmentVariables)
+          (filter #(and (nil? (:value %))
+                        (or (:isSecret %) (:isRequired %) (:description %))))
+          (map (fn [ev] [(keyword (:name ev))
+                         (select-keys ev [:description :isRequired :isSecret :format :default :placeholder])]))
           (into {}))
      ;; Variables from remote headers
      (->> remotes
@@ -102,15 +110,31 @@
    variables))
 
 (defn convert-env-variables
-  "Convert environmentVariables back to docker format with interpolation restored"
-  [env-vars]
+  "Convert environmentVariables back to docker format with interpolation restored.
+   Only includes non-secret environment variables (secrets go in the secrets array)."
+  [env-vars config-vars server-name]
   (when (seq env-vars)
     (->> env-vars
-         (map (fn [{:keys [name value variables]}]
+         ;; Filter out direct secret env vars - they should only be in secrets array
+         (remove :isSecret)
+         (map (fn [{:keys [name value variables default]}]
                 {:name name
-                 :value (if variables
+                 :value (cond
+                          ;; If there are nested variables, restore interpolation
+                          variables
                           (restore-interpolated-value value variables)
-                          value)}))
+
+                          ;; If there's a value, use it
+                          value
+                          value
+
+                          ;; Check if this env var is defined as a config variable
+                          (and (nil? value) (contains? config-vars (keyword name)))
+                          (format "{{%s.%s}}" server-name name)
+
+                          ;; Otherwise use the default value
+                          :else
+                          default)}))
          (into []))))
 
 (defn parse-runtime-arg
@@ -136,16 +160,35 @@
                 (second (string/split value #"=")))))))
 
 (defn extract-volumes-from-runtime-args
-  "Extract volume arguments from runtime arguments, restoring interpolation"
+  "Extract volume arguments from runtime arguments, restoring interpolation.
+   Handles both -v and --mount flags. Converts --mount syntax to simple src:dst format."
   [runtime-args]
   (->> runtime-args
        (filter #(and (= "named" (:type %))
-                     (= "-v" (:name %))))
-       (map (fn [{:keys [value variables]}]
-              (let [vol-value (second (string/split value #"="))]
-                (if variables
-                  (restore-interpolated-value vol-value variables)
-                  vol-value))))
+                     (or (= "-v" (:name %))
+                         (= "--mount" (:name %)))))
+       (map (fn [{:keys [name value variables]}]
+              (let [restored-value (if variables
+                                     (restore-interpolated-value value variables)
+                                     value)]
+                (if (= "--mount" name)
+                  ;; For --mount, parse and convert to simple src:dst format
+                  ;; Input: "type=bind,src={{source_path}},dst={{target_path}}"
+                  ;; Output: "{{source_path}}:{{target_path}}"
+                  (let [parts (string/split restored-value #",")
+                        kv-map (->> parts
+                                    (map #(string/split % #"=" 2))
+                                    (filter #(= 2 (count %)))
+                                    (map (fn [[k v]] [(keyword k) v]))
+                                    (into {}))
+                        src (or (:src kv-map) (:source kv-map))
+                        dst (or (:dst kv-map) (:destination kv-map) (:target kv-map))]
+                    (if (and src dst)
+                      (format "%s:%s" src dst)
+                      restored-value)) ; fallback to full value
+                  ;; For -v, extract value after '='
+                  (or (second (string/split restored-value #"="))
+                      restored-value)))))
        (into [])))
 
 (defn convert-package-args-to-command
@@ -177,7 +220,7 @@
 (defn transform-to-docker
   "Transform a ServerDetail (community format) back to docker server format"
   [server-detail]
-  (if (s/valid? :registry/ServerDetail server-detail)
+  (if (s/valid? :registry/server server-detail)
     (let [server-name (extract-server-name (:name server-detail))
           package (first (:packages server-detail))
           remote (first (:remotes server-detail))
@@ -189,7 +232,7 @@
       (cond->
        {:description (:description server-detail)
         :name server-name
-        :title (:title server-detail)}
+        :title (or (:title server-detail) server-name)}
 
         ;; Add image if it's an OCI package
         (and package (extract-image-info package))
@@ -210,7 +253,7 @@
 
         ;; Add environment variables
         (:environmentVariables package)
-        (assoc :env (convert-env-variables (:environmentVariables package)))
+        (assoc :env (convert-env-variables (:environmentVariables package) config server-name))
 
         ;; Add command from package arguments
         (:packageArguments package)
@@ -231,7 +274,7 @@
         (:icons server-detail)
         (assoc :icon (-> server-detail :icons first :src))
         ))
-    (s/explain :registry/ServerDetail server-detail)))
+    (s/explain :registry/server server-detail)))
 
 (defn ->mcp-registry [s]
   (cond-> (-> s (dissoc :title :description) (assoc :about (select-keys s [:title :description :icon])))
@@ -239,11 +282,16 @@
     (:secrets s) (-> (dissoc :secrets) (assoc :config (select-keys s [:secrets])))
     (:oauth s) (-> (update :oauth (fn [{:keys [providers]}] (->> providers (into [])))))))
 
+(pprint/pprint
+  (transform-to-docker (:server (json/parse-string (slurp "./servers/server_garmin_mcp.json") keyword))))
+
+(pprint/pprint
+  (transform-to-docker (:server (json/parse-string (slurp "./servers/server_filesystem.json") keyword))))
 ; docker mcp catalog-next create jimclark106/docker-private --title "Docker Private Catalog" --from-legacy-catalog ./private.json Catalog jimclark106/docker-private:latest created
 (spit
  "private.json"
  (json/generate-string
-   (let [server0 (transform-to-docker (json/parse-string (slurp "./servers/server_grafana_internal.json") keyword))]
+   (let [server0 (transform-to-docker (:server (json/parse-string (slurp "./servers/server_grafana_internal.json") keyword)))]
      {:name "PrivateDocker"
       :displayName "Private Docker Catalog"
       :registry
@@ -253,10 +301,10 @@
 (spit
  "legacy.json"
  (json/generate-string
-   (let [server0 (transform-to-docker (json/parse-string (slurp "./servers/grounding_lite.json") keyword))
-         server1 (transform-to-docker (json/parse-string (slurp "./servers/gke-mcp-server.json") keyword))
-         server2 (transform-to-docker (json/parse-string (slurp "./servers/google-cloud-compute-mcp_server.json") keyword))
-         server3 (transform-to-docker (json/parse-string (slurp "./servers/server_bigquery_mcp.json") keyword))]
+   (let [server0 (transform-to-docker (:server (json/parse-string (slurp "./servers/grounding_lite.json") keyword)))
+         server1 (transform-to-docker (:server (json/parse-string (slurp "./servers/gke-mcp-server.json") keyword)))
+         server2 (transform-to-docker (:server (json/parse-string (slurp "./servers/google-cloud-compute-mcp_server.json") keyword)))
+         server3 (transform-to-docker (:server (json/parse-string (slurp "./servers/server_bigquery_mcp.json") keyword)))]
      {:name "Google"
       :displayName "Google"
       :registry
@@ -266,10 +314,10 @@
        (:name server3) server3}})
   {:pretty true}))
 
-(let [server0 (transform-to-docker (json/parse-string (slurp "./servers/grounding_lite.json") keyword))
-      server1 (transform-to-docker (json/parse-string (slurp "./servers/gke-mcp-server.json") keyword))
-      server2 (transform-to-docker (json/parse-string (slurp "./servers/google-cloud-compute-mcp_server.json") keyword))
-      server3 (transform-to-docker (json/parse-string (slurp "./servers/server_bigquery_mcp.json") keyword))]
+(let [server0 (transform-to-docker (:server (json/parse-string (slurp "./servers/grounding_lite.json") keyword)))
+      server1 (transform-to-docker (:server (json/parse-string (slurp "./servers/gke-mcp-server.json") keyword)))
+      server2 (transform-to-docker (:server (json/parse-string (slurp "./servers/google-cloud-compute-mcp_server.json") keyword)))
+      server3 (transform-to-docker (:server (json/parse-string (slurp "./servers/server_bigquery_mcp.json") keyword)))]
   (doseq [s [server0 server1 server2 server3]]
     (fs/create-dirs (format "./catalog/%s" (:name s)))
     (spit (format "./catalog/%s/server.yaml" (:name s)) (clj-yaml/generate-string (->mcp-registry s) :dumper-options { :flow-style :block}))))

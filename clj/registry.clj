@@ -3,9 +3,9 @@
    [babashka.curl :as curl]
    [babashka.fs :as fs]
    [cheshire.core :as json]
-   [clojure.java.io :as io]
-   [clojure.string :as string]
-   ))
+   [clj-yaml.core :as clj-yaml]
+   [clojure.data :as data]
+   [clojure.string :as string]))
 
 (defn fetch-servers [{:keys [cursor]}]
   (->
@@ -74,6 +74,9 @@
             (count (-> server :server :remotes)) 
             (->> server :server :packages (map :registryType) (string/join ",")))))
 
+(defn just-domain [url]
+  (let [[x] (re-find #"(https://[^/]*)" url)] x))
+
 ;; Example usage:
 (comment
   (set! *print-level* nil)
@@ -88,10 +91,36 @@
   (->> (list-community-registry-files "./community-registry")
        (partition-by #(-> % :server :name))
        (count))
-  (->>
-   (list-community-registry-files "./community-registry")
-   (filter oci?)
-   (count))
+  (def community-remotes
+    (->>
+      (list-community-registry-files "./community-registry")
+      (filter remote?)
+      (mapcat (fn [server] (-> server :server :remotes)))
+      (map :url)
+      (filter (complement #(string/includes? % "smithery")))
+      (map just-domain)
+      (into #{})
+      ))
+  (def registry-remotes
+    (->>
+      (-> (slurp "/Users/slim/.docker/mcp/catalogs/docker-mcp.yaml")
+          (clj-yaml/parse-string)
+          :registry)
+      vals
+      (map (comp :url :remote))
+      (filter identity)
+      (map just-domain)
+      (into #{})))
+  (let [[community registry both] (data/diff community-remotes registry-remotes)]
+    (println "community: " (count community-remotes))
+    (println "registry: " (count registry-remotes))
+    (println "community-only: " (count community))
+    (println "registry-only: " (count registry))
+    (println "both: " (count both))
+
+    (map println registry)
+    )
+
   (->>
    (list-community-registry-files "./community-registry")
    (partition-by #(-> % :server :name))
