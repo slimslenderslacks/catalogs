@@ -1,0 +1,16 @@
+{
+  "name" : "PrivateDocker",
+  "displayName" : "Private Docker Catalog",
+  "registry" : {
+    "com-docker-grafana-internal" : {
+      "description" : "Internal Grafana MCP server. Only accessible to Docker employees",
+      "name" : "com-docker-grafana-internal",
+      "title" : "Docker Internal Grafana Server",
+      "remote" : {
+        "url" : "https://mcp-grafana.s.us-east-1.aws.dckr.io/mcp",
+        "transport_type" : "streamable-http"
+      },
+      "type" : "remote"
+    }
+  }
+}

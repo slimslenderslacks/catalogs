@@ -5,6 +5,7 @@
    [cheshire.core :as json]
    [clj-yaml.core :as clj-yaml]
    [clojure.data :as data]
+   [clojure.pprint :as pprint]
    [clojure.string :as string]))
 
 (defn fetch-servers [{:keys [cursor]}]
@@ -24,12 +25,13 @@
    :body
    (json/parse-string true)))
 
-(def servers
-  (loop [agg [] opts {}]
-    (let [{:keys [servers metadata]} (fetch-servers opts)]
-      (if-let [next-cursor (:next_cursor metadata)]
-        (recur (concat agg (map server-detail servers)) {:cursor next-cursor})
-        (concat agg (map server-detail servers))))))
+(comment
+  (def servers
+    (loop [agg [] opts {}]
+      (let [{:keys [servers metadata]} (fetch-servers opts)]
+        (if-let [next-cursor (:next_cursor metadata)]
+          (recur (concat agg (map server-detail servers)) {:cursor next-cursor})
+          (concat agg (map server-detail servers)))))))
 
 (defn get-batch [last]
   (->
@@ -69,14 +71,26 @@
 (defn oci? [server] (->> server :server :packages seq (some #(= (:registryType %) "oci"))))
 (defn summary [server]
   (let [{:keys [name version]} (->> server :server)]
-    (format "%-80s%-20s %4d %s" 
-            name version 
-            (count (-> server :server :remotes)) 
+    (format "%-80s%-20s %4d %s"
+            name version
+            (count (-> server :server :remotes))
             (->> server :server :packages (map :registryType) (string/join ",")))))
 
 (defn just-domain [url]
   (let [[x] (re-find #"(https://[^/]*)" url)] x))
-
+(comment
+  ;; all community pypi servers
+  (spit "pypi-urls.txt"
+    (->>
+      (list-community-registry-files "./community-registry")
+      (filter #(not (or (remote? %) (oci? %))))
+      (map :server)
+      (partition-by :name)
+      (map first)
+      (filter #(some (fn [m] (= "pypi" (:registryType m))) (:packages %)))
+      (map #(format "https://registry.modelcontextprotocol.io/v0/servers/%s/versions/%s" (string/replace (:name %) "/" "%2F") (:version %)))
+      (interpose "\n")
+      (apply str))))
 ;; Example usage:
 (comment
   (set! *print-level* nil)
@@ -93,33 +107,35 @@
        (count))
   (def community-remotes
     (->>
-      (list-community-registry-files "./community-registry")
-      (filter remote?)
-      (mapcat (fn [server] (-> server :server :remotes)))
-      (map :url)
-      (filter (complement #(string/includes? % "smithery")))
-      (map just-domain)
-      (into #{})
-      ))
+     (list-community-registry-files "./community-registry")
+     (filter remote?)
+     (mapcat (fn [server] (-> server :server :remotes)))
+     (map :url)
+     (filter (complement #(string/includes? % "smithery")))
+     (map just-domain)
+     (into #{})))
   (def registry-remotes
     (->>
-      (-> (slurp "/Users/slim/.docker/mcp/catalogs/docker-mcp.yaml")
-          (clj-yaml/parse-string)
-          :registry)
-      vals
-      (map (comp :url :remote))
-      (filter identity)
-      (map just-domain)
-      (into #{})))
+     (-> (slurp "./docker-catalog.json")
+         (json/parse-string keyword)
+         :servers)
+     (filter #(= (:type %) "remote"))
+     (map (comp :url :remote :server :snapshot))
+     (filter identity)
+     (map just-domain)
+     (into #{})))
+  (count registry-remotes)
+  (count community-remotes)
+  ;; analyze the remote overlaps
   (let [[community registry both] (data/diff community-remotes registry-remotes)]
     (println "community: " (count community-remotes))
     (println "registry: " (count registry-remotes))
     (println "community-only: " (count community))
     (println "registry-only: " (count registry))
     (println "both: " (count both))
-
-    (map println registry)
-    )
+    (pprint/pprint both)
+    (pprint/pprint registry)
+    (pprint/pprint community))
 
   (->>
    (list-community-registry-files "./community-registry")

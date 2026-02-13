@@ -3,6 +3,8 @@ package catalogs
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/docker/mcp-gateway/pkg/catalog"
 )
 
 func TestTransformOCIPackage(t *testing.T) {
@@ -93,7 +95,7 @@ func TestTransformOCIPackage(t *testing.T) {
 		t.Fatalf("TransformJSON failed: %v", err)
 	}
 
-	var result DockerServer
+	var result catalog.Server
 	if err := json.Unmarshal([]byte(catalogJSON), &result); err != nil {
 		t.Fatalf("Failed to unmarshal result: %v", err)
 	}
@@ -126,20 +128,27 @@ func TestTransformOCIPackage(t *testing.T) {
 	if len(result.Config) == 0 {
 		t.Error("Expected config to be present")
 	} else {
-		config := result.Config[0]
-		if _, ok := config.Properties["source_path"]; !ok {
+		configMap, ok := result.Config[0].(map[string]any)
+		if !ok {
+			t.Fatal("Expected config to be a map[string]any")
+		}
+		properties, ok := configMap["properties"].(map[string]any)
+		if !ok {
+			t.Fatal("Expected properties in config")
+		}
+		if _, ok := properties["source_path"]; !ok {
 			t.Error("Expected source_path in config properties")
 		}
-		if _, ok := config.Properties["target_path"]; !ok {
+		if _, ok := properties["target_path"]; !ok {
 			t.Error("Expected target_path in config properties")
 		}
-		if _, ok := config.Properties["uid"]; !ok {
+		if _, ok := properties["uid"]; !ok {
 			t.Error("Expected uid in config properties")
 		}
-		if _, ok := config.Properties["gid"]; !ok {
+		if _, ok := properties["gid"]; !ok {
 			t.Error("Expected gid in config properties")
 		}
-		if _, ok := config.Properties["log_level"]; !ok {
+		if _, ok := properties["log_level"]; !ok {
 			t.Error("Expected log_level in config properties")
 		}
 	}
@@ -260,7 +269,7 @@ func TestTransformRemote(t *testing.T) {
 		t.Fatalf("TransformJSON failed: %v", err)
 	}
 
-	var result DockerServer
+	var result catalog.Server
 	if err := json.Unmarshal([]byte(catalogJSON), &result); err != nil {
 		t.Fatalf("Failed to unmarshal result: %v", err)
 	}
@@ -284,7 +293,7 @@ func TestTransformRemote(t *testing.T) {
 	}
 
 	// Verify remote configuration
-	if result.Remote == nil {
+	if result.Remote.URL == "" {
 		t.Fatal("Expected remote to be present")
 	}
 
@@ -292,8 +301,8 @@ func TestTransformRemote(t *testing.T) {
 		t.Errorf("Expected remote URL 'https://mapstools.googleapis.com/mcp', got '%s'", result.Remote.URL)
 	}
 
-	if result.Remote.TransportType != "streamable-http" {
-		t.Errorf("Expected transport type 'streamable-http', got '%s'", result.Remote.TransportType)
+	if result.Remote.Transport != "streamable-http" {
+		t.Errorf("Expected transport type 'streamable-http', got '%s'", result.Remote.Transport)
 	}
 
 	// Verify headers with interpolation
@@ -329,9 +338,6 @@ func TestTransformRemote(t *testing.T) {
 				if secret.Env != "API_KEY" {
 					t.Errorf("Expected secret env 'API_KEY', got '%s'", secret.Env)
 				}
-				if secret.Example != "AIzaSyD..." {
-					t.Errorf("Expected secret example 'AIzaSyD...', got '%s'", secret.Example)
-				}
 				found = true
 				break
 			}
@@ -345,12 +351,23 @@ func TestTransformRemote(t *testing.T) {
 	if len(result.Config) == 0 {
 		t.Error("Expected config to be present")
 	} else {
-		config := result.Config[0]
-		if prop, ok := config.Properties["project_id"]; !ok {
+		configMap, ok := result.Config[0].(map[string]any)
+		if !ok {
+			t.Fatal("Expected config to be a map[string]any")
+		}
+		properties, ok := configMap["properties"].(map[string]any)
+		if !ok {
+			t.Fatal("Expected properties in config")
+		}
+		if prop, ok := properties["project_id"]; !ok {
 			t.Error("Expected project_id in config properties")
 		} else {
-			if prop.Type != "string" {
-				t.Errorf("Expected project_id type 'string', got '%s'", prop.Type)
+			propMap, ok := prop.(map[string]any)
+			if !ok {
+				t.Fatal("Expected property to be a map[string]any")
+			}
+			if propMap["type"] != "string" {
+				t.Errorf("Expected project_id type 'string', got '%v'", propMap["type"])
 			}
 		}
 	}
@@ -420,7 +437,7 @@ func TestTransformRemoteWithOAuth(t *testing.T) {
 		t.Fatalf("TransformJSON failed: %v", err)
 	}
 
-	var result DockerServer
+	var result catalog.Server
 	if err := json.Unmarshal([]byte(catalogJSON), &result); err != nil {
 		t.Fatalf("Failed to unmarshal result: %v", err)
 	}
@@ -431,20 +448,8 @@ func TestTransformRemoteWithOAuth(t *testing.T) {
 	}
 
 	// Verify OAuth structure
-	oauthMap, ok := result.OAuth.(map[string]interface{})
-	if !ok {
-		t.Fatal("Expected OAuth to be a map")
-	}
-
-	if providers, ok := oauthMap["providers"]; !ok {
-		t.Error("Expected OAuth providers")
-	} else {
-		providerList, ok := providers.([]interface{})
-		if !ok {
-			t.Error("Expected OAuth providers to be a list")
-		} else if len(providerList) == 0 {
-			t.Error("Expected at least one OAuth provider")
-		}
+	if len(result.OAuth.Providers) == 0 {
+		t.Error("Expected at least one OAuth provider")
 	}
 
 	t.Logf("Catalog JSON:\n%s", catalogJSON)
@@ -474,7 +479,7 @@ func TestTransformSimpleRemote(t *testing.T) {
 		t.Fatalf("TransformJSON failed: %v", err)
 	}
 
-	var result DockerServer
+	var result catalog.Server
 	if err := json.Unmarshal([]byte(catalogJSON), &result); err != nil {
 		t.Fatalf("Failed to unmarshal result: %v", err)
 	}
@@ -489,7 +494,7 @@ func TestTransformSimpleRemote(t *testing.T) {
 	}
 
 	// Verify remote
-	if result.Remote == nil {
+	if result.Remote.URL == "" {
 		t.Fatal("Expected remote to be present")
 	}
 
@@ -560,7 +565,7 @@ func TestTransformOCIWithDirectSecrets(t *testing.T) {
 		t.Fatalf("TransformJSON failed: %v", err)
 	}
 
-	var result DockerServer
+	var result catalog.Server
 	if err := json.Unmarshal([]byte(catalogJSON), &result); err != nil {
 		t.Fatalf("Failed to unmarshal result: %v", err)
 	}

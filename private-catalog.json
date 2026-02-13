@@ -1,0 +1,52 @@
+{
+  "name" : "private-catalog",
+  "displayName" : "Private Catalog",
+  "registry" : {
+    "com-google-cloud-bigquery-mcp" : {
+      "description" : "Remote MCP server for BigQuery data analysis, querying, and forecasting via Google Cloud",
+      "name" : "com-google-cloud-bigquery-mcp",
+      "title" : "BigQuery MCP Server",
+      "remote" : {
+        "url" : "https://bigquery.googleapis.com/mcp",
+        "transport_type" : "streamable-http",
+        "headers" : {
+          "x-goog-user-project" : "${PROJECT_ID}"
+        }
+      },
+      "type" : "remote",
+      "secrets" : [ {
+        "name" : "com-google-cloud-bigquery-mcp.project_id",
+        "env" : "PROJECT_ID",
+        "example" : "project-1234..."
+      } ],
+      "oauth" : {
+        "providers" : [ {
+          "provider" : "google",
+          "secret" : "google.access_token",
+          "env" : "ACCESS_TOKEN"
+        } ],
+        "scopes" : [ ]
+      },
+      "icon" : "https://cdn.worldvectorlogo.com/logos/google-bigquery-logo-1.svg"
+    },
+    "com-docker-internal-grafana" : {
+      "description" : "Internal Grafana Server",
+      "name" : "com-docker-internal-grafana",
+      "title" : "Internal Grafana Server",
+      "remote" : {
+        "url" : "https://mcp-grafana.s.us-east-1.aws.dckr.io/mcp",
+        "transport_type" : "streamable-http"
+      },
+      "type" : "remote",
+      "icon" : "https://avatars.githubusercontent.com/u/5429470?s=200&v=4"
+    },
+    "com-docker-knowledge-graph" : {
+      "description" : "Engineering Knowledge Graph server",
+      "name" : "com-docker-knowledge-graph",
+      "title" : "Engineering Knowledge Graph",
+      "type" : "server",
+      "image": "jimclark106/knowledge-graph:latest",
+      "icon" : "https://avatars.githubusercontent.com/u/5429470?s=200&v=4"
+    }
+  }
+}

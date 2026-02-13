@@ -4,128 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/docker/mcp-gateway/pkg/catalog"
+	"github.com/modelcontextprotocol/registry/pkg/api/v0"
+	"github.com/modelcontextprotocol/registry/pkg/model"
 )
 
-// Community Registry Structs
+// Type aliases for imported types from the registry package
+type (
+	ServerDetail  = v0.ServerJSON
+	RegistryEntry = v0.ServerResponse
+)
 
-type Input struct {
-	Description string   `json:"description,omitempty"`
-	IsRequired  bool     `json:"isRequired,omitempty"`
-	Format      string   `json:"format,omitempty"` // string, number, boolean, filepath
-	Value       string   `json:"value,omitempty"`
-	IsSecret    bool     `json:"isSecret,omitempty"`
-	Default     string   `json:"default,omitempty"`
-	Choices     []string `json:"choices,omitempty"`
-	Placeholder string   `json:"placeholder,omitempty"`
-	Variables   map[string]Input `json:"variables,omitempty"`
-}
-
-type KeyValueInput struct {
-	Name string `json:"name"`
-	Input
-}
-
-type Argument struct {
-	Type       string           `json:"type"` // named or positional
-	Name       string           `json:"name,omitempty"`
-	Value      string           `json:"value,omitempty"`
-	ValueHint  string           `json:"valueHint,omitempty"`
-	IsRepeated bool             `json:"isRepeated,omitempty"`
-	Variables  map[string]Input `json:"variables,omitempty"`
-	Input
-}
-
-type Transport struct {
-	Type    string            `json:"type"` // stdio, sse, streamable-http
-	URL     string            `json:"url,omitempty"`
-	Headers []KeyValueInput   `json:"headers,omitempty"`
-}
-
-type Package struct {
-	RegistryType         string           `json:"registryType"` // npm, pypi, oci, nuget, mcpb
-	Identifier           string           `json:"identifier"`
-	Version              string           `json:"version"`
-	Transport            Transport        `json:"transport"`
-	RegistryBaseURL      string           `json:"registryBaseUrl,omitempty"`
-	RuntimeHint          string           `json:"runtimeHint,omitempty"`
-	FileSha256           string           `json:"fileSha256,omitempty"`
-	RuntimeArguments     []Argument       `json:"runtimeArguments,omitempty"`
-	PackageArguments     []Argument       `json:"packageArguments,omitempty"`
-	EnvironmentVariables []KeyValueInput  `json:"environmentVariables,omitempty"`
-}
-
-type Icon struct {
-	Src      string   `json:"src"`
-	Theme    string   `json:"theme,omitempty"`    // light or dark
-	MimeType string   `json:"mimeType,omitempty"` // image/png, image/jpeg, etc
-	Sizes    []string `json:"sizes,omitempty"`
-}
-
-type ServerDetail struct {
-	Schema      string            `json:"$schema,omitempty"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Title       string            `json:"title,omitempty"`
-	Version     string            `json:"version"`
-	WebsiteURL  string            `json:"websiteUrl,omitempty"`
-	Packages    []Package         `json:"packages,omitempty"`
-	Remotes     []Transport       `json:"remotes,omitempty"`
-	Icons       []Icon            `json:"icons,omitempty"`
-	Meta        map[string]interface{} `json:"_meta,omitempty"`
-}
-
-type RegistryEntry struct {
-	Server ServerDetail `json:"server"`
-}
-
-// Docker Catalog Structs
-
-type ConfigSchema struct {
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`
-	Description string                 `json:"description"`
-	Properties  map[string]ConfigProperty `json:"properties"`
-	Required    []string               `json:"required,omitempty"`
-}
-
-type ConfigProperty struct {
-	Type        string `json:"type"`
-	Description string `json:"description,omitempty"`
-}
-
-type Secret struct {
-	Name    string `json:"name"`
-	Env     string `json:"env"`
-	Example string `json:"example,omitempty"`
-}
-
-type EnvVar struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-type DockerRemote struct {
-	URL           string            `json:"url"`
-	TransportType string            `json:"transport_type"`
-	Headers       map[string]string `json:"headers,omitempty"`
-}
-
-type DockerServer struct {
-	Name        string          `json:"name"`
-	Title       string          `json:"title,omitempty"`
-	Description string          `json:"description"`
-	Image       string          `json:"image,omitempty"`
-	Remote      *DockerRemote   `json:"remote,omitempty"`
-	Type        string          `json:"type,omitempty"`
-	Config      []ConfigSchema  `json:"config,omitempty"`
-	Secrets     []Secret        `json:"secrets,omitempty"`
-	Env         []EnvVar        `json:"env,omitempty"`
-	Command     []string        `json:"command,omitempty"`
-	User        string          `json:"user,omitempty"`
-	Volumes     []string        `json:"volumes,omitempty"`
-	Icon        string          `json:"icon,omitempty"`
-	OAuth       interface{}     `json:"oauth,omitempty"`
-}
+// Using types from github.com/docker/mcp-gateway/pkg/catalog
 
 // Helper Functions
 
@@ -136,8 +27,8 @@ func extractServerName(fullName string) string {
 	return name
 }
 
-func collectVariables(serverDetail ServerDetail) map[string]Input {
-	variables := make(map[string]Input)
+func collectVariables(serverDetail ServerDetail) map[string]model.Input {
+	variables := make(map[string]model.Input)
 
 	// Collect from packages
 	for _, pkg := range serverDetail.Packages {
@@ -179,9 +70,9 @@ func collectVariables(serverDetail ServerDetail) map[string]Input {
 	return variables
 }
 
-func separateSecretsAndConfig(variables map[string]Input) (secrets map[string]Input, config map[string]Input) {
-	secrets = make(map[string]Input)
-	config = make(map[string]Input)
+func separateSecretsAndConfig(variables map[string]model.Input) (secrets map[string]model.Input, config map[string]model.Input) {
+	secrets = make(map[string]model.Input)
+	config = make(map[string]model.Input)
 
 	for k, v := range variables {
 		if v.IsSecret {
@@ -194,26 +85,26 @@ func separateSecretsAndConfig(variables map[string]Input) (secrets map[string]In
 	return secrets, config
 }
 
-func buildConfigSchema(configVars map[string]Input, serverName string) []ConfigSchema {
+func buildConfigSchema(configVars map[string]model.Input, serverName string) []any {
 	if len(configVars) == 0 {
 		return nil
 	}
 
-	properties := make(map[string]ConfigProperty)
+	properties := make(map[string]any)
 	var required []string
 
 	for varName, varDef := range configVars {
 		jsonType := "string"
 		switch varDef.Format {
-		case "number":
+		case model.FormatNumber:
 			jsonType = "number"
-		case "boolean":
+		case model.FormatBoolean:
 			jsonType = "boolean"
 		}
 
-		properties[varName] = ConfigProperty{
-			Type:        jsonType,
-			Description: varDef.Description,
+		properties[varName] = map[string]any{
+			"type":        jsonType,
+			"description": varDef.Description,
 		}
 
 		if varDef.IsRequired {
@@ -221,26 +112,24 @@ func buildConfigSchema(configVars map[string]Input, serverName string) []ConfigS
 		}
 	}
 
-	return []ConfigSchema{{
-		Name:        serverName,
-		Type:        "object",
-		Description: fmt.Sprintf("Configuration for %s", serverName),
-		Properties:  properties,
-		Required:    required,
-	}}
+	return []any{
+		map[string]any{
+			"name":        serverName,
+			"type":        "object",
+			"description": fmt.Sprintf("Configuration for %s", serverName),
+			"properties":  properties,
+			"required":    required,
+		},
+	}
 }
 
-func buildSecrets(serverName string, secretVars map[string]Input) []Secret {
-	var secrets []Secret
+func buildSecrets(serverName string, secretVars map[string]model.Input) []catalog.Secret {
+	var secrets []catalog.Secret
 
-	for varName, varDef := range secretVars {
-		secret := Secret{
+	for varName := range secretVars {
+		secret := catalog.Secret{
 			Name: fmt.Sprintf("%s.%s", serverName, varName),
 			Env:  strings.ToUpper(varName),
-		}
-
-		if varDef.Placeholder != "" {
-			secret.Example = varDef.Placeholder
 		}
 
 		secrets = append(secrets, secret)
@@ -249,14 +138,14 @@ func buildSecrets(serverName string, secretVars map[string]Input) []Secret {
 	return secrets
 }
 
-func extractImageInfo(pkg Package) string {
+func extractImageInfo(pkg model.Package) string {
 	if pkg.RegistryType == "oci" && pkg.Transport.Type == "stdio" {
 		return fmt.Sprintf("%s@%s", pkg.Identifier, pkg.Version)
 	}
 	return ""
 }
 
-func restoreInterpolatedValue(processedValue string, variables map[string]Input) string {
+func restoreInterpolatedValue(processedValue string, variables map[string]model.Input) string {
 	result := processedValue
 
 	// Replace {varName} with {{varName}} for config vars or ${VARNAME} for secrets
@@ -274,12 +163,12 @@ func restoreInterpolatedValue(processedValue string, variables map[string]Input)
 	return result
 }
 
-func convertEnvVariables(envVars []KeyValueInput, configVars map[string]Input, serverName string) []EnvVar {
+func convertEnvVariables(envVars []model.KeyValueInput, configVars map[string]model.Input, serverName string) []catalog.Env {
 	if len(envVars) == 0 {
 		return nil
 	}
 
-	var result []EnvVar
+	var result []catalog.Env
 	for _, ev := range envVars {
 		// Skip direct secret env vars - they should only be in secrets array
 		if ev.IsSecret {
@@ -301,7 +190,7 @@ func convertEnvVariables(envVars []KeyValueInput, configVars map[string]Input, s
 			}
 		}
 
-		result = append(result, EnvVar{
+		result = append(result, catalog.Env{
 			Name:  ev.Name,
 			Value: value,
 		})
@@ -310,21 +199,21 @@ func convertEnvVariables(envVars []KeyValueInput, configVars map[string]Input, s
 	return result
 }
 
-func parseRuntimeArg(arg Argument) string {
+func parseRuntimeArg(arg model.Argument) string {
 	value := arg.Value
 	if len(arg.Variables) > 0 {
 		value = restoreInterpolatedValue(value, arg.Variables)
 	}
 
-	if arg.Type == "named" {
+	if arg.Type == model.ArgumentTypeNamed {
 		return fmt.Sprintf("%s=%s", arg.Name, value)
 	}
 	return value
 }
 
-func extractUserFromRuntimeArgs(runtimeArgs []Argument) string {
+func extractUserFromRuntimeArgs(runtimeArgs []model.Argument) string {
 	for _, arg := range runtimeArgs {
-		if arg.Type == "named" && arg.Name == "-u" {
+		if arg.Type == model.ArgumentTypeNamed && arg.Name == "-u" {
 			value := arg.Value
 			if len(arg.Variables) > 0 {
 				value = restoreInterpolatedValue(value, arg.Variables)
@@ -340,11 +229,11 @@ func extractUserFromRuntimeArgs(runtimeArgs []Argument) string {
 	return ""
 }
 
-func extractVolumesFromRuntimeArgs(runtimeArgs []Argument) []string {
+func extractVolumesFromRuntimeArgs(runtimeArgs []model.Argument) []string {
 	var volumes []string
 
 	for _, arg := range runtimeArgs {
-		if arg.Type != "named" {
+		if arg.Type != model.ArgumentTypeNamed {
 			continue
 		}
 
@@ -353,7 +242,8 @@ func extractVolumesFromRuntimeArgs(runtimeArgs []Argument) []string {
 			value = restoreInterpolatedValue(value, arg.Variables)
 		}
 
-		if arg.Name == "--mount" {
+		switch arg.Name {
+		case "--mount":
 			// For --mount, parse and convert to simple src:dst format
 			// Input: "type=bind,src={{source_path}},dst={{target_path}}"
 			// Output: "{{source_path}}:{{target_path}}"
@@ -376,7 +266,7 @@ func extractVolumesFromRuntimeArgs(runtimeArgs []Argument) []string {
 				// Fallback to full value if parsing fails
 				volumes = append(volumes, value)
 			}
-		} else if arg.Name == "-v" {
+		case "-v":
 			// For -v, extract value after '=' if present
 			parts := strings.SplitN(value, "=", 2)
 			if len(parts) == 2 {
@@ -390,7 +280,7 @@ func extractVolumesFromRuntimeArgs(runtimeArgs []Argument) []string {
 	return volumes
 }
 
-func convertPackageArgsToCommand(packageArgs []Argument) []string {
+func convertPackageArgsToCommand(packageArgs []model.Argument) []string {
 	if len(packageArgs) == 0 {
 		return nil
 	}
@@ -403,10 +293,10 @@ func convertPackageArgsToCommand(packageArgs []Argument) []string {
 	return command
 }
 
-func convertRemote(remote Transport) *DockerRemote {
-	dockerRemote := &DockerRemote{
-		URL:           remote.URL,
-		TransportType: remote.Type,
+func convertRemote(remote model.Transport) catalog.Remote {
+	catalogRemote := catalog.Remote{
+		URL:       remote.URL,
+		Transport: remote.Type,
 	}
 
 	if len(remote.Headers) > 0 {
@@ -418,36 +308,29 @@ func convertRemote(remote Transport) *DockerRemote {
 			}
 			headers[header.Name] = value
 		}
-		dockerRemote.Headers = headers
+		catalogRemote.Headers = headers
 	}
 
-	return dockerRemote
+	return catalogRemote
 }
 
-func getPublisherProvidedMeta(meta map[string]interface{}) map[string]interface{} {
+func getPublisherProvidedMeta(meta *v0.ServerMeta) map[string]interface{} {
 	if meta == nil {
 		return nil
 	}
-
-	if ppData, ok := meta["io.modelcontextprotocol.registry/publisher-provided"]; ok {
-		if ppMap, ok := ppData.(map[string]interface{}); ok {
-			return ppMap
-		}
-	}
-
-	return nil
+	return meta.PublisherProvided
 }
 
-// TransformToDocker transforms a ServerDetail (community format) to DockerServer (catalog format)
-func TransformToDocker(serverDetail ServerDetail) (*DockerServer, error) {
+// TransformToDocker transforms a ServerDetail (community format) to catalog.Server (catalog format)
+func TransformToDocker(serverDetail ServerDetail) (*catalog.Server, error) {
 	serverName := extractServerName(serverDetail.Name)
 
-	var pkg *Package
+	var pkg *model.Package
 	if len(serverDetail.Packages) > 0 {
 		pkg = &serverDetail.Packages[0]
 	}
 
-	var remote *Transport
+	var remote *model.Transport
 	if len(serverDetail.Remotes) > 0 {
 		remote = &serverDetail.Remotes[0]
 	}
@@ -455,7 +338,7 @@ func TransformToDocker(serverDetail ServerDetail) (*DockerServer, error) {
 	variables := collectVariables(serverDetail)
 	secretVars, configVars := separateSecretsAndConfig(variables)
 
-	dockerServer := &DockerServer{
+	server := &catalog.Server{
 		Name:        serverName,
 		Title:       serverDetail.Title,
 		Description: serverDetail.Description,
@@ -464,75 +347,82 @@ func TransformToDocker(serverDetail ServerDetail) (*DockerServer, error) {
 	// Add image if it's an OCI package
 	if pkg != nil {
 		if image := extractImageInfo(*pkg); image != "" {
-			dockerServer.Image = image
-			dockerServer.Type = "server"
+			server.Image = image
+			server.Type = "server"
 		}
 	}
 
 	// Add remote if present
 	if remote != nil {
-		dockerServer.Remote = convertRemote(*remote)
-		dockerServer.Type = "remote"
+		remoteVal := convertRemote(*remote)
+		server.Remote = remoteVal
+		server.Type = "remote"
 	}
 
 	// Add config schema if we have config variables
 	if len(configVars) > 0 {
-		dockerServer.Config = buildConfigSchema(configVars, serverName)
+		server.Config = buildConfigSchema(configVars, serverName)
 	}
 
 	// Add secrets if we have secret variables
 	if len(secretVars) > 0 {
-		dockerServer.Secrets = buildSecrets(serverName, secretVars)
+		server.Secrets = buildSecrets(serverName, secretVars)
 	}
 
 	// Add environment variables
 	if pkg != nil && len(pkg.EnvironmentVariables) > 0 {
-		dockerServer.Env = convertEnvVariables(pkg.EnvironmentVariables, configVars, serverName)
+		server.Env = convertEnvVariables(pkg.EnvironmentVariables, configVars, serverName)
 	}
 
 	// Add command from package arguments
 	if pkg != nil && len(pkg.PackageArguments) > 0 {
-		dockerServer.Command = convertPackageArgsToCommand(pkg.PackageArguments)
+		server.Command = convertPackageArgsToCommand(pkg.PackageArguments)
 	}
 
 	// Add user from runtime arguments
 	if pkg != nil {
 		if user := extractUserFromRuntimeArgs(pkg.RuntimeArguments); user != "" {
-			dockerServer.User = user
+			server.User = user
 		}
 	}
 
 	// Add volumes from runtime arguments
 	if pkg != nil {
 		if volumes := extractVolumesFromRuntimeArgs(pkg.RuntimeArguments); len(volumes) > 0 {
-			dockerServer.Volumes = volumes
+			server.Volumes = volumes
 		}
 	}
 
 	// Add metadata from publisher-provided
 	if publisherMeta := getPublisherProvidedMeta(serverDetail.Meta); publisherMeta != nil {
-		if oauth, ok := publisherMeta["oauth"]; ok {
-			dockerServer.OAuth = oauth
+		if oauthData, ok := publisherMeta["oauth"]; ok {
+			// Try to convert to catalog.OAuth
+			if oauthJSON, err := json.Marshal(oauthData); err == nil {
+				var oauth catalog.OAuth
+				if err := json.Unmarshal(oauthJSON, &oauth); err == nil {
+					server.OAuth = &oauth
+				}
+			}
 		}
 	}
 
 	// Add icon
 	if len(serverDetail.Icons) > 0 {
-		dockerServer.Icon = serverDetail.Icons[0].Src
+		server.Icon = serverDetail.Icons[0].Src
 	}
 
-	return dockerServer, nil
+	return server, nil
 }
 
 // TransformJSON transforms community registry JSON to catalog JSON
 func TransformJSON(registryJSON string) (string, error) {
-	var registryEntry RegistryEntry
+	var serverResponse v0.ServerResponse
 
-	if err := json.Unmarshal([]byte(registryJSON), &registryEntry); err != nil {
+	if err := json.Unmarshal([]byte(registryJSON), &serverResponse); err != nil {
 		return "", fmt.Errorf("failed to parse registry JSON: %w", err)
 	}
 
-	dockerServer, err := TransformToDocker(registryEntry.Server)
+	dockerServer, err := TransformToDocker(serverResponse.Server)
 	if err != nil {
 		return "", fmt.Errorf("failed to transform: %w", err)
 	}
@@ -544,4 +434,3 @@ func TransformJSON(registryJSON string) (string, error) {
 
 	return string(catalogJSON), nil
 }
-

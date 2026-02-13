@@ -1,6 +1,9 @@
 google: ./legacy.json
 	docker mcp catalog-next create vonwig/google:latest --title "New Google MCP Servers" --from-legacy-catalog ./legacy.json
 
+private-catalog: ./private-catalog.json
+	docker mcp catalog-next create vonwig/private-catalog:latest --title "Private Catalog" --from-legacy-catalog ./private-catalog.json
+
 push-google: google
 	docker mcp catalog-next push vonwig/google:latest
 
